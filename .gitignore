@@ -1,0 +1,34 @@
+# ================= 操作系统 =================
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ================= IDE =================
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# ================= Java / Maven =================
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/*.properties
+
+# ================= Flutter / Dart（为 10/30 的 atm-app 预留） =================
+atm-app/build/
+atm-app/.dart_tool/
+atm-app/.flutter-plugins
+atm-app/.flutter-plugins-dependencies
+atm-app/.packages
+atm-app/pubspec.lock
+atm-app/android/.gradle/
+atm-app/ios/Pods/
+atm-app/**/*.g.dart
+
+# ================= 日志 / 临时文件 =================
+*.log
+_mysql_temp.cnf
+_tmp_*.sql
