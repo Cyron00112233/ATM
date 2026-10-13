@@ -32,3 +32,6 @@ atm-app/**/*.g.dart
 *.log
 _mysql_temp.cnf
 _tmp_*.sql
+
+# ================= 工具产物 =================
+.dsh-*
