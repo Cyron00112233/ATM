@@ -22,6 +22,7 @@
     <properties>
         <!-- 向导默认给了 17，我们改成 21（你的 JDK 就是 21） -->
         <java.version>21</java.version>
+        <jjwt.version>0.12.5</jjwt.version>
         <mybatis-starter.version>3.0.5</mybatis-starter.version>
     </properties>
 
@@ -73,6 +74,35 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+
+    <!-- BCrypt 密码加密工具
+     注意：只引 crypto，千万不要引 spring-boot-starter-security！
+     那个会锁掉所有接口，你还没写登录接口就会被拦成 401 -->
+    <dependency>
+        <groupId>org.springframework.security</groupId>
+        <artifactId>spring-security-crypto</artifactId>
+    </dependency>
+
+    <!-- JWT：jjwt 分三个包
+         编译时只需要 jjwt-api，另外两个是运行时实现，所以 scope 是 runtime -->
+    <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-api</artifactId>
+        <version>${jjwt.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-impl</artifactId>
+        <version>${jjwt.version}</version>
+        <scope>runtime</scope>
+    </dependency>
+    <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-jackson</artifactId>
+        <version>${jjwt.version}</version>
+        <scope>runtime</scope>
+    </dependency>
     </dependencies>
 
     <build>
