@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.atm.mapper.BankCardMapper">
+
+    <sql id="baseColumns">
+        id, card_no, customer_id, card_type, password, pwd_error_count,
+        card_status, lock_time, open_time, expire_date, create_time, update_time
+    </sql>
+
+    <select id="selectByCardNo" resultType="com.atm.entity.BankCard">
+        select <include refid="baseColumns"/>
+        from bank_card
+        where card_no = #{cardNo}
+    </select>
+
+    <!-- 原子自增：让数据库自己算，避免"读出来加一再写"的并发问题 -->
+    <update id="increasePwdErrorCount">
+        update bank_card
+        set pwd_error_count = pwd_error_count + 1
+        where id = #{id}
+    </update>
+
+    <update id="resetPwdErrorCount">
+        update bank_card
+        set pwd_error_count = 0
+        where id = #{id}
+    </update>
+
+    <!-- 锁卡：状态 2 = 锁定，同时记录锁定时间 -->
+    <update id="lockCard">
+        update bank_card
+        set card_status = 2,
+            lock_time   = now()
+        where id = #{id}
+    </update>
+
+</mapper>

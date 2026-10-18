@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.atm.mapper.AtmSessionMapper">
+
+    <!--
+        useGeneratedKeys="true" : 让 MyBatis 把数据库生成的自增主键取回来
+        keyProperty="id"        : 取回后塞进参数的哪个属性
+        → 插入成功后，传进来的 session 对象里 id 就有值了
+    -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into atm_session
+            (session_no, card_no, device_no, token, status, login_time, last_active_time)
+        values
+            (#{sessionNo}, #{cardNo}, #{deviceNo}, #{token}, #{status}, now(), now())
+    </insert>
+
+    <select id="selectByToken" resultType="com.atm.entity.AtmSession">
+        select id, session_no, card_no, device_no, token, status,
+               login_time, logout_time, last_active_time, create_time
+        from atm_session
+        where token = #{token}
+    </select>
+
+    <update id="updateStatus">
+        update atm_session
+        set status = #{status},
+            logout_time = case when #{status} = 2 then now() else logout_time end
+        where id = #{id}
+    </update>
+
+    <update id="updateLastActive">
+        update atm_session
+        set last_active_time = now()
+        where id = #{id}
+    </update>
+
+</mapper>
