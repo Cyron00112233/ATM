@@ -55,7 +55,7 @@ public class AdminServiceImpl implements AdminService {
             log.warn("更新最后登录时间失败",e);
         }
 
-        //6.签发Token（角色暂时写死 admin,后面做角色表在改成查库）
+        //6.签发Token（角色暂时写死 admin,后面做角色表再改成查库）
         String token = jwtUtil.createToken(user.getId(), user.getUsername(), "admin");
 
         //7.组装返回，不返回password
@@ -66,7 +66,7 @@ public class AdminServiceImpl implements AdminService {
         response.setRealName(user.getRealName());
         response.setRole("admin");
 
-        log.info("登陆成功 -> {}",user.getUsername());
+        log.info("登录成功 -> {}",user.getUsername());
         return response;
     }
 }

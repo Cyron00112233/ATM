@@ -21,6 +21,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/**")          // 拦截所有 /api 开头的接口
                 .excludePathPatterns(                 // 白名单：这些不拦
                         "/api/admin/login",           // 必须有，否则登录会死循环
+                        "/api/atm/**",        // ← 新增：ATM 端用自己的会话 token，不走管理员 JWT
                         "/api/hello",                 // 注意开头必须有斜杠，少了匹配不到
                         "/error"
                 );
