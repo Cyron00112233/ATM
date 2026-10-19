@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.atm.mapper.TransRecordMapper">
+
+    <!-- create_time 有默认值，不用插 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into trans_record
+        (trans_no, trans_type_code, card_no, account_id, target_card_no, target_account_id,
+        amount, fee, before_balance, after_balance, currency, status, fail_reason,
+        device_no, session_id, remark, trans_time)
+        values
+        (#{transNo}, #{transTypeCode}, #{cardNo}, #{accountId}, #{targetCardNo}, #{targetAccountId},
+        #{amount}, #{fee}, #{beforeBalance}, #{afterBalance}, #{currency}, #{status}, #{failReason},
+        #{deviceNo}, #{sessionId}, #{remark}, now())
+    </insert>
+
+    <sql id="baseColumns">
+        id, trans_no, trans_type_code, card_no, account_id, target_card_no, target_account_id,
+        amount, fee, before_balance, after_balance, currency, status, fail_reason,
+        device_no, session_id, remark, trans_time, create_time
+    </sql>
+
+    <select id="selectByTransNo" resultType="com.atm.entity.TransRecord">
+        select <include refid="baseColumns"/>
+        from trans_record
+        where trans_no = #{transNo}
+    </select>
+
+</mapper>

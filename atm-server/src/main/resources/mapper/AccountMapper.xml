@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.atm.mapper.AccountMapper">
+
+    <sql id="baseColumns">
+        id, account_no, card_id, customer_id, account_type, currency,
+        balance, available_balance, frozen_amount, status, version,
+        create_time, update_time
+    </sql>
+
+    <select id="selectByCardId" resultType="com.atm.entity.Account">
+        select <include refid="baseColumns"/>
+        from account
+        where card_id = #{cardId}
+          and account_type = 1
+          and currency = 'CNY'
+        limit 1
+    </select>
+
+    <select id="selectById" resultType="com.atm.entity.Account">
+        select <include refid="baseColumns"/>
+        from account
+        where id = #{id}
+    </select>
+
+    <!--
+        扣款：把「余额够不够」放进 where，让数据库来保证不会扣成负数。
+        返回 0 行 = 余额不足（没扣）
+        注意：两个 SET 子句之间必须是【逗号】
+    -->
+    <update id="decreaseBalance">
+        update account
+        set available_balance = available_balance - #{amount},
+            balance           = balance - #{amount}
+        where id = #{id}
+          and available_balance >= #{amount}
+    </update>
+
+    <update id="increaseBalance">
+        update account
+        set available_balance = available_balance + #{amount},
+            balance           = balance + #{amount}
+        where id = #{id}
+    </update>
+
+</mapper>

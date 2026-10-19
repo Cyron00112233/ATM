@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+
 /**
  * 管理员业务实现
  */
@@ -69,4 +70,5 @@ public class AdminServiceImpl implements AdminService {
         log.info("登录成功 -> {}",user.getUsername());
         return response;
     }
+
 }

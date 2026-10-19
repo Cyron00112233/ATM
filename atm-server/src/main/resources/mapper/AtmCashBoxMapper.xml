@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.atm.mapper.AtmCashBoxMapper">
+
+    <sql id="baseColumns">
+        id, device_no, box_no, denomination, total_amount,
+        note_count, max_amount, status, update_time
+    </sql>
+
+    <!-- 注意：select 和 <include/> 之间必须有空格，否则拼出来是 selectid,... -->
+    <select id="selectByDeviceAndDenomination" resultType="com.atm.entity.AtmCashBox">
+        select <include refid="baseColumns"/>
+        from atm_cash_box
+        where device_no = #{deviceNo}
+          and denomination = #{denomination}
+        limit 1
+    </select>
+
+    <!--
+        出钞：把「钞够不够」放进 where，返回 0 = 钞不足
+        total_amount 用 张数 × 面额 算出来，不用 Java 算
+    -->
+    <update id="decreaseNoteCount">
+        update atm_cash_box
+        set note_count   = note_count - #{count},
+            total_amount = total_amount - #{count} * denomination
+        where id = #{id}
+          and note_count >= #{count}
+    </update>
+
+    <update id="increaseNoteCount">
+        update atm_cash_box
+        set note_count   = note_count + #{count},
+            total_amount = total_amount + #{count} * denomination
+        where id = #{id}
+    </update>
+
+</mapper>
