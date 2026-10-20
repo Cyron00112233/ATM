@@ -10,8 +10,8 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface AtmCashBoxMapper {
 
-    //按机具+面额查钞箱
-    AtmCashBox selectByDeviceAndDenomination(@Param("device") String deviceNo,
+    //按机具+面额查钞箱（名字必须和 XML 里的 #{deviceNo} 一致）
+    AtmCashBox selectByDeviceAndDenomination(@Param("deviceNo") String deviceNo,
                                              @Param("denomination") Integer denomination);
 
     /**

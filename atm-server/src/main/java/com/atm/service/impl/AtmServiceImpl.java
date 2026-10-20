@@ -2,9 +2,7 @@ package com.atm.service.impl;
 
 import com.atm.common.BusinessException;
 import com.atm.common.ResultCode;
-import com.atm.dto.InsertCardRequest;
-import com.atm.dto.InsertCardResponse;
-import com.atm.dto.VerifyPasswordRequest;
+import com.atm.dto.*;
 import com.atm.entity.AtmSession;
 import com.atm.entity.BankCard;
 import com.atm.entity.Customer;
@@ -16,6 +14,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.atm.dto.WithdrawRequest;
+import com.atm.dto.WithdrawResponse;
+import com.atm.entity.Account;
+import com.atm.entity.AtmCashBox;
+import com.atm.entity.TransRecord;
+import com.atm.mapper.AccountMapper;
+import com.atm.mapper.AtmCashBoxMapper;
+import com.atm.mapper.TransRecordMapper;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.ThreadLocalRandom;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,6 +53,9 @@ public class AtmServiceImpl implements AtmService {
     private final AtmSessionMapper atmSessionMapper;
     private final CustomerMapper customerMapper;
     private final PasswordEncoder passwordEncoder;
+    private final AccountMapper accountMapper;
+    private final AtmCashBoxMapper cashBoxMapper;
+    private final TransRecordMapper transRecordMapper;
 
     // ---------------- 1. 插卡 ----------------
     @Override
@@ -144,6 +158,81 @@ public class AtmServiceImpl implements AtmService {
 
         log.info("退卡完成 sessionNo={}", session.getSessionNo());
     }
+    //--------------------4.取款----------------
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public WithdrawResponse withdraw(WithdrawRequest request) {
+
+        //1.校验会话
+        AtmSession session = getValidSession(request.getSessionToken());
+
+        //2.查卡 + 状态
+        BankCard card = bankCardMapper.selectByCardNo(session.getCardNo());
+        if(card == null){
+            throw new BusinessException(ResultCode.CARD_NOT_FOUND);
+        }
+        checkCardStatus(card);
+
+        //3.金额校验
+        BigDecimal amount = request.getAmount();
+        validateAmount(amount);
+
+        //4.查账户
+        Account account = accountMapper.selectByCardId(card.getId());
+        if(account == null){
+            throw new BusinessException(ResultCode.ACCOUNT_NOT_FOUND);
+        }
+        if(account.getStatus() == null || account.getStatus() != 1){
+            throw new BusinessException(ResultCode.ACCOUNT_NOT_FOUND,"账户状态异常，无法取款");
+        }
+
+        //5.扣款：余额不足时返回0行
+        int rows = accountMapper.decreaseBalance(account.getId(),amount);
+        if(rows == 0){
+            throw new BusinessException(ResultCode.BALANCE_NOT_ENOUGH);
+        }
+
+        //6.配钞：只支持100元卷
+        int need100 = amount.intValue() / 100;
+        AtmCashBox box100 = cashBoxMapper.selectByDeviceAndDenomination(session.getDeviceNo(),100);
+        if(box100 == null || box100.getNoteCount() < need100){
+            //抛异常 -> 事务回滚 -> 第五步扣的钱被撤销
+            throw new BusinessException(ResultCode.CASH_NOT_ENOUGH,"ATM 现金不足，请换台机器或改取其他金额");
+        }
+        cashBoxMapper.decreaseNoteCount(box100.getId(),need100);
+
+        //7.记流水
+        String transNo = generateTransNo();
+        TransRecord record = new TransRecord();
+        record.setTransNo(transNo);
+        record.setTransTypeCode("WITHDRAW");
+        record.setCardNo(card.getCardNo());
+        record.setAccountId(account.getId());
+        record.setAmount(amount);
+        record.setFee(BigDecimal.ZERO);
+        record.setBeforeBalance(account.getAvailableBalance());
+        record.setAfterBalance(account.getAvailableBalance().subtract(amount));
+        record.setCurrency("CNY");
+        record.setStatus(1);
+        record.setDeviceNo(session.getDeviceNo());
+        record.setSessionId(session.getId());
+        record.setRemark("ATM取款");
+        transRecordMapper.insert(record);
+
+        //8.刷新会话活动时间
+        atmSessionMapper.updateLastActive(session.getId());
+
+        log.info("取款成功 tranNO={},cardNo={},amount={}",transNo,card.getCardNo(),amount);
+
+        //9.组装响应
+        WithdrawResponse response = new WithdrawResponse();
+        response.setTransNo(transNo);
+        response.setAmount(amount);
+        response.setBalanceAfter(record.getAfterBalance());
+        response.setCashDetail("100 元 x"+need100+"张");
+        response.setMessage("请取走现金");
+        return response;
+    }
 
     // ---------------- 私有方法 ----------------
 
@@ -194,5 +283,24 @@ public class AtmServiceImpl implements AtmService {
         return cardNo.substring(0, 4)
                 + "*".repeat(cardNo.length() - 8)
                 + cardNo.substring(cardNo.length() - 4);
+    }
+
+    //金额校验：必须是100的整数倍，单笔100-5000
+    private void validateAmount(BigDecimal amount){
+        if(amount == null || amount.compareTo(BigDecimal.ZERO) <= 0){
+            throw new BusinessException(ResultCode.AMOUNT_ILLEGAL);
+        }
+        if (amount.remainder(new BigDecimal("100")).compareTo(BigDecimal.ZERO) != 0) {
+            throw new BusinessException(ResultCode.AMOUNT_ILLEGAL, "取款金额必须是 100 的整数倍");
+        }
+        if(amount.compareTo(new BigDecimal("5000"))>0){
+            throw new BusinessException(ResultCode.AMOUNT_LIMIT_EXCEED,"单笔取款最多5000元");
+        }
+    }
+
+    //生成胶衣流水号：14 位时间 + 6位随机
+    private String generateTransNo(){
+        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                +String.format("%06d",ThreadLocalRandom.current().nextInt(1000000));
     }
 }

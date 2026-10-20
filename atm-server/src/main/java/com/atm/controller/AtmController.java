@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.atm.dto.WithdrawRequest;
+import com.atm.dto.WithdrawResponse;
 
 /**
  * ATM 机具端接口
@@ -55,5 +57,15 @@ public class AtmController {
     public Result<Void> ejectCard(@Valid @RequestBody EjectCardRequest request){
         atmService.ejectCard(request.getSessionToken());
         return Result.success("请取走你的银行卡",null);
+    }
+
+    /**
+     * ④ 取款
+     * POST http://localhost:8080/api/atm/withdraw
+     * { "sessionToken": "xxx", "amount": 500 }
+     */
+    @PostMapping("/withdraw")
+    public Result<WithdrawResponse> withdraw(@Valid @RequestBody WithdrawRequest request){
+        return Result.success("取款成功",atmService.withdraw(request));
     }
 }
