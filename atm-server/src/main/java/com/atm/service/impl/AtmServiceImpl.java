@@ -31,7 +31,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
-
+import com.atm.dto.DepositRequest;
+import com.atm.dto.DepositResponse;
 /**
  * ATM 端业务实现
  */
@@ -233,6 +234,77 @@ public class AtmServiceImpl implements AtmService {
         response.setMessage("请取走现金");
         return response;
     }
+    //-------------------5.存款---------------
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DepositResponse deposit(DepositRequest request) {
+
+        //1.校验会话
+        AtmSession session = getValidSession(request.getSessionToken());
+
+        //2.查卡 + 状态
+        BankCard card = bankCardMapper.selectByCardNo(session.getCardNo());
+        if(card == null){
+            throw new BusinessException(ResultCode.CARD_NOT_FOUND);
+        }
+        checkCardStatus(card);
+
+        //3.金额校验
+        BigDecimal amount = request.getAmount();
+        validateDepositAmount(amount);
+
+        //4.查账户
+        Account account = accountMapper.selectByCardId(card.getId());
+        if(account == null){
+            throw new BusinessException(ResultCode.ACCOUNT_NOT_FOUND);
+        }
+        if(account.getStatus() == null || account.getStatus() != 1){
+            throw new BusinessException(ResultCode.ACCOUNT_NOT_FOUND,"账户状态异常，无法存款");
+        }
+
+        //5.入账（存款不需要余额校验，所以不影响行数）
+        accountMapper.increaseBalance(account.getId(),amount);
+
+        //6.钞箱进账：100元劵
+        int noteCount = amount.intValue() / 100;
+        AtmCashBox box100 = cashBoxMapper.selectByDeviceAndDenomination(session.getDeviceNo(), 100);
+        if(box100 == null){
+            throw new BusinessException(ResultCode.CASH_NOT_ENOUGH,"该机具暂不支持存款");
+        }
+        cashBoxMapper.increaseNoteCount(box100.getId(), noteCount);
+
+        //7.记流水
+        String transNo = generateTransNo();
+        TransRecord record = new TransRecord();
+        record.setTransNo(transNo);
+        record.setTransTypeCode("DEPOSIT");
+        record.setCardNo(card.getCardNo());
+        record.setAccountId(account.getId());
+        record.setAmount(amount);
+        record.setFee(BigDecimal.ZERO);
+        record.setBeforeBalance(account.getAvailableBalance());
+        record.setAfterBalance(account.getAvailableBalance().add(amount));
+        record.setCurrency("CNY");
+        record.setStatus(1);
+        record.setDeviceNo(session.getDeviceNo());
+        record.setSessionId(session.getId());
+        record.setRemark("ATM 存款");
+        transRecordMapper.insert(record);
+
+        //8.刷新会话活动时间
+        atmSessionMapper.updateLastActive(session.getId());
+
+        log.info("存款成功 transNo={},cardNo{},amount={}",transNo,card.getCardNo(),amount);
+
+        //9.组装响应
+        DepositResponse response = new DepositResponse();
+        response.setTransNo(transNo);
+        response.setAmount(amount);
+        response.setBalanceAfter(record.getAfterBalance());
+        response.setCashDetail("100 元 x "+noteCount + "张");
+        response.setMessage("存款成功");
+        return response;
+    }
 
     // ---------------- 私有方法 ----------------
 
@@ -302,5 +374,18 @@ public class AtmServiceImpl implements AtmService {
     private String generateTransNo(){
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
                 +String.format("%06d",ThreadLocalRandom.current().nextInt(1000000));
+    }
+
+    //存款金额校验：必须是100的整数倍，单次 100 - 10000
+    private void validateDepositAmount(BigDecimal amount){
+        if(amount == null || amount.compareTo(BigDecimal.ZERO) <= 0){
+            throw new BusinessException(ResultCode.AMOUNT_ILLEGAL);
+        }
+        if(amount.remainder(new BigDecimal("100")).compareTo(BigDecimal.ZERO) != 0){
+            throw new BusinessException(ResultCode.AMOUNT_ILLEGAL,"存款金额必须是 100 的整数倍");
+        }
+        if(amount.compareTo(new BigDecimal("10000")) > 0){
+            throw new BusinessException(ResultCode.AMOUNT_LIMIT_EXCEED,"单次存款最多 10000 元");
+        }
     }
 }

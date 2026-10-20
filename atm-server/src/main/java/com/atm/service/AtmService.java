@@ -5,6 +5,8 @@ import com.atm.dto.InsertCardResponse;
 import com.atm.dto.VerifyPasswordRequest;
 import com.atm.dto.WithdrawRequest;
 import com.atm.dto.WithdrawResponse;
+import com.atm.dto.DepositRequest;
+import com.atm.dto.DepositResponse;
 /**
  * ATM 端业务接口
  */
@@ -21,4 +23,6 @@ public interface AtmService {
 
     //取款
     WithdrawResponse withdraw(WithdrawRequest request);
+    //存款
+    DepositResponse deposit(DepositRequest request);
 }
