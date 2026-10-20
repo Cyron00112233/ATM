@@ -26,11 +26,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.stream.Collectors;
+
 import com.atm.dto.DepositRequest;
 import com.atm.dto.DepositResponse;
 /**
@@ -57,6 +61,16 @@ public class AtmServiceImpl implements AtmService {
     private final AccountMapper accountMapper;
     private final AtmCashBoxMapper cashBoxMapper;
     private final TransRecordMapper transRecordMapper;
+
+    //交易类型代码 -> 中文名
+    private static final Map<String,String> TRANS_TYPE_NAMES = Map.of(
+            "WITHDRAW", "取款",
+            "DEPOSIT", "存款",
+            "TRANSFER_OUT", "转账转出",
+            "TRANSFER_IN", "转账转入",
+            "FEE", "手续费",
+            "QUERY", "余额查询"
+    );
 
     // ---------------- 1. 插卡 ----------------
     @Override
@@ -304,6 +318,69 @@ public class AtmServiceImpl implements AtmService {
         response.setCashDetail("100 元 x "+noteCount + "张");
         response.setMessage("存款成功");
         return response;
+    }
+
+    //-----------------6.余额查询----------------
+    //只读操作，不需要事务回滚
+    @Override
+    public BalanceResponse queryBalance(BalanceRequest request) {
+
+        AtmSession session = getValidSession(request.getSessionToken());
+
+        BankCard card = bankCardMapper.selectByCardNo(session.getCardNo());
+        if(card == null){
+            throw new BusinessException(ResultCode.CARD_NOT_FOUND);
+        }
+        checkCardStatus(card);
+
+        Account account = accountMapper.selectByCardId(card.getId());
+        if(account == null){
+            throw new BusinessException(ResultCode.ACCOUNT_NOT_FOUND);
+        }
+
+        Customer customer = customerMapper.selectById(card.getCustomerId());
+
+        //查询也算一次活动，刷新会话时间
+        atmSessionMapper.updateLastActive(session.getId());
+
+        BalanceResponse response = new BalanceResponse();
+        response.setCardNo(maskCardNo(card.getCardNo()));
+        response.setCustomerName(customer == null ? "":customer.getRealName());
+        response.setAccountNo(account.getAccountNo());
+        response.setBalance(account.getBalance());
+        response.setAvailableBalance(account.getAvailableBalance());
+        response.setCurrency(account.getCurrency());
+        return response;
+    }
+
+    //-------------7.交易明细--------------
+    //只读操作，不需要@Transcational
+    @Override
+    public List<TransDetailItem> queryTransactions(TransDetailRequest request) {
+
+        AtmSession session = getValidSession(request.getSessionToken());
+
+        int limit = (request.getLimit() == null || request.getLimit() <= 0) ? 10
+                : Math.min(request.getLimit(),50);
+
+        List<TransRecord> records = transRecordMapper.selectByCardNo(session.getCardNo(),limit);
+
+        atmSessionMapper.updateLastActive(session.getId());
+
+        return records.stream().map(r ->{
+            TransDetailItem item = new TransDetailItem();
+            item.setTransNo(r.getTransNo());
+            item.setTransTypeCode(r.getTransTypeCode());
+            item.setTransTypeName(TRANS_TYPE_NAMES.getOrDefault(r.getTransTypeCode(),
+                    r.getTransTypeCode()));
+            item.setAmount(r.getAmount());
+            item.setFee(r.getFee());
+            item.setBeforeBalance(r.getBeforeBalance());
+            item.setAfterBalance(r.getAfterBalance());
+            item.setStatus(r.getStatus());
+            item.setTransTime(r.getTransTime());
+           return  item;
+        }).collect(Collectors.toList());
     }
 
     // ---------------- 私有方法 ----------------

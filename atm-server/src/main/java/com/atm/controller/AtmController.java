@@ -16,6 +16,11 @@ import com.atm.dto.WithdrawRequest;
 import com.atm.dto.WithdrawResponse;
 import com.atm.dto.DepositRequest;
 import com.atm.dto.DepositResponse;
+import com.atm.dto.BalanceRequest;
+import com.atm.dto.BalanceResponse;
+import com.atm.dto.TransDetailItem;
+import com.atm.dto.TransDetailRequest;
+import java.util.List;
 /**
  * ATM 机具端接口
  * <p>
@@ -78,5 +83,25 @@ public class AtmController {
     @PostMapping("/deposit")
     public Result<DepositResponse> deposit(@Valid @RequestBody DepositRequest request){
         return Result.success("存款成功",atmService.deposit(request));
+    }
+
+    /**
+     * ⑥ 余额查询
+     * POST http://localhost:8080/api/atm/balance
+     * { "sessionToken": "xxx" }
+     */
+    @PostMapping("/balance")
+    public Result<BalanceResponse> balance(@Valid @RequestBody BalanceRequest request){
+        return Result.success("查询成功",atmService.queryBalance(request));
+    }
+
+    /**
+     * ⑦ 交易明细
+     * POST http://localhost:8080/api/atm/transactions
+     * { "sessionToken": "xxx", "limit": 10 }
+     */
+    @PostMapping("/transactions")
+    public Result<List<TransDetailItem>> transactions(@Valid @RequestBody TransDetailRequest request){
+        return Result.success("查询成功",atmService.queryTransactions(request));
     }
 }

@@ -28,4 +28,13 @@
         where trans_no = #{transNo}
     </select>
 
+    <!-- 最近 N 笔流水，按时间倒序 -->
+    <select id="selectByCardNo" resultType="com.atm.entity.TransRecord">
+        select <include refid="baseColumns"/>
+        from trans_record
+        where card_no = #{cardNo}
+        order by trans_time desc, id desc
+        limit #{limit}
+    </select>
+
 </mapper>

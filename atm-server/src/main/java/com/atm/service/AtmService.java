@@ -7,6 +7,11 @@ import com.atm.dto.WithdrawRequest;
 import com.atm.dto.WithdrawResponse;
 import com.atm.dto.DepositRequest;
 import com.atm.dto.DepositResponse;
+import com.atm.dto.BalanceRequest;
+import com.atm.dto.BalanceResponse;
+import com.atm.dto.TransDetailItem;
+import com.atm.dto.TransDetailRequest;
+import java.util.List;
 /**
  * ATM 端业务接口
  */
@@ -23,6 +28,13 @@ public interface AtmService {
 
     //取款
     WithdrawResponse withdraw(WithdrawRequest request);
+
     //存款
     DepositResponse deposit(DepositRequest request);
+
+    //余额查询
+    BalanceResponse queryBalance(BalanceRequest request);
+
+    //交易明细
+    List<TransDetailItem> queryTransactions(TransDetailRequest request);
 }

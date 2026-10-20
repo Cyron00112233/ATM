@@ -4,6 +4,8 @@ import com.atm.entity.TransRecord;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 交易流水表 Mapper
  */
@@ -15,5 +17,8 @@ public interface TransRecordMapper {
 
     //按流水号查（幂等检查：重复提交时能查到已有记录）
     TransRecord selectByTransNo(@Param("transNo") String transNo);
+
+    //按卡号查最近N笔流水
+    List<TransRecord> selectByCardNo(@Param("cardNo") String cardNo,@Param("limit") Integer limit);
 
 }
