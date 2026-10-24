@@ -214,6 +214,7 @@ create table atm_session (
   device_no        varchar(20)     null comment '机具编号',
   token            varchar(64) not null comment '会话令牌',
   status           tinyint     not null default 1 comment '状态：1 进行中 2 已退卡 3 超时 4 异常',
+  verified         tinyint     not null default 0 comment '是否已验证交易密码：0 未验 1 已验',
   login_time       datetime    not null default current_timestamp comment '插卡时间',
   logout_time      datetime        null comment '退卡时间',
   last_active_time datetime        null comment '最后活动时间',
