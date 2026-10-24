@@ -21,4 +21,7 @@ public interface AtmSessionMapper {
 
     //更新最后活动时间
     int updateLastActive(@Param("id") Long id);
+
+    //标记会话已通过交易密码验证（verified 置 1）
+    int markVerified(@Param("id") Long id);
 }

@@ -28,6 +28,9 @@ public class AtmSession {
     //状态：1 进行中 2 已退卡 3 超时 4 异常
     private Integer status;
 
+    //是否已验证交易密码：0 未验 1 已验（防止跳过密码直接取款）
+    private Integer verified;
+
     //插卡时间
     private LocalDateTime loginTime;
 

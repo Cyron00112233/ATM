@@ -157,7 +157,10 @@ public class AtmServiceImpl implements AtmService {
         // 5.验证成功 -> 错误次数归零
         bankCardMapper.resetPwdErrorCount(card.getId());
 
-        // 6.刷新最后活动时间
+        // 6.标记会话已通过密码验证（之后才允许取款/存款/转账）
+        atmSessionMapper.markVerified(session.getId());
+
+        // 7.刷新最后活动时间
         atmSessionMapper.updateLastActive(session.getId());
 
         log.info("密码验证通过 cardNo={}", card.getCardNo());
@@ -180,7 +183,7 @@ public class AtmServiceImpl implements AtmService {
     public WithdrawResponse withdraw(WithdrawRequest request) {
 
         //1.校验会话
-        AtmSession session = getValidSession(request.getSessionToken());
+        AtmSession session = getVerifiedSession(request.getSessionToken());
 
         //2.查卡 + 状态
         BankCard card = bankCardMapper.selectByCardNo(session.getCardNo());
@@ -255,7 +258,7 @@ public class AtmServiceImpl implements AtmService {
     public DepositResponse deposit(DepositRequest request) {
 
         //1.校验会话
-        AtmSession session = getValidSession(request.getSessionToken());
+        AtmSession session = getVerifiedSession(request.getSessionToken());
 
         //2.查卡 + 状态
         BankCard card = bankCardMapper.selectByCardNo(session.getCardNo());
@@ -326,7 +329,7 @@ public class AtmServiceImpl implements AtmService {
     @Override
     public BalanceResponse queryBalance(BalanceRequest request) {
 
-        AtmSession session = getValidSession(request.getSessionToken());
+        AtmSession session = getVerifiedSession(request.getSessionToken());
 
         BankCard card = bankCardMapper.selectByCardNo(session.getCardNo());
         if(card == null){
@@ -359,7 +362,7 @@ public class AtmServiceImpl implements AtmService {
     @Override
     public List<TransDetailItem> queryTransactions(TransDetailRequest request) {
 
-        AtmSession session = getValidSession(request.getSessionToken());
+        AtmSession session = getVerifiedSession(request.getSessionToken());
 
         int limit = (request.getLimit() == null || request.getLimit() <= 0) ? 10
                 : Math.min(request.getLimit(),50);
@@ -389,7 +392,7 @@ public class AtmServiceImpl implements AtmService {
     public TransferResponse transfer(TransferRequest request) {
 
         //1.校验会话
-        AtmSession session = getValidSession(request.getSessionToken());
+        AtmSession session = getVerifiedSession(request.getSessionToken());
 
         //2.本方卡 + 状态
         BankCard fromCard = bankCardMapper.selectByCardNo(session.getCardNo());
@@ -567,6 +570,21 @@ public class AtmServiceImpl implements AtmService {
             atmSessionMapper.updateStatus(session.getId(), 3);   // 3 = 超时
             throw new BusinessException(ResultCode.UNAUTHORIZED,
                     "会话已超时（" + SESSION_TIMEOUT_MINUTES + " 分钟无操作），请重新插卡");
+        }
+        return session;
+    }
+
+    /**
+     * 取「已验证交易密码」的会话
+     * <p>
+     * 取款、存款、转账、余额查询、交易明细 都必须用它。
+     * 先做 getValidSession 的全部校验，再额外要求 verified == 1，
+     * 这样即使拿到了 sessionToken，不调 verify-password 也无法进行任何资金操作。
+     */
+    private AtmSession getVerifiedSession(String token) {
+        AtmSession session = getValidSession(token);
+        if (session.getVerified() == null || session.getVerified() != 1) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先验证交易密码");
         }
         return session;
     }

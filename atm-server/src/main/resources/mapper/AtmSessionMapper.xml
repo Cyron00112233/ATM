@@ -8,6 +8,7 @@
         useGeneratedKeys="true" : 让 MyBatis 把数据库生成的自增主键取回来
         keyProperty="id"        : 取回后塞进参数的哪个属性
         → 插入成功后，传进来的 session 对象里 id 就有值了
+        verified 不插入，由数据库默认值 0 填充（未验密码）
     -->
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         insert into atm_session
@@ -17,7 +18,7 @@
     </insert>
 
     <select id="selectByToken" resultType="com.atm.entity.AtmSession">
-        select id, session_no, card_no, device_no, token, status,
+        select id, session_no, card_no, device_no, token, status, verified,
                login_time, logout_time, last_active_time, create_time
         from atm_session
         where token = #{token}
@@ -33,6 +34,13 @@
     <update id="updateLastActive">
         update atm_session
         set last_active_time = now()
+        where id = #{id}
+    </update>
+
+    <!-- 密码验证通过后把 verified 置 1，之后才允许取款/存款/转账等交易 -->
+    <update id="markVerified">
+        update atm_session
+        set verified = 1
         where id = #{id}
     </update>
 
