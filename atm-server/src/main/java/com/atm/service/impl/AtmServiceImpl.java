@@ -25,6 +25,7 @@ import com.atm.mapper.TransRecordMapper;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -131,7 +132,7 @@ public class AtmServiceImpl implements AtmService {
         // 3.卡状态检查
         checkCardStatus(card);
 
-        // 4.BCrypt 校验
+        // 4.Bcrypt 校验
         if (!passwordEncoder.matches(request.getPassword(), card.getPassword())) {
 
             // 错误次数原子 +1
@@ -382,6 +383,152 @@ public class AtmServiceImpl implements AtmService {
            return  item;
         }).collect(Collectors.toList());
     }
+    //------------------8.转账--------------------
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public TransferResponse transfer(TransferRequest request) {
+
+        //1.校验会话
+        AtmSession session = getValidSession(request.getSessionToken());
+
+        //2.本方卡 + 状态
+        BankCard fromCard = bankCardMapper.selectByCardNo(session.getCardNo());
+        if(fromCard == null){
+            throw new BusinessException(ResultCode.CARD_NOT_FOUND);
+        }
+        checkCardStatus(fromCard);
+
+        //3.不能转给自己
+        if(fromCard.getCardNo().equals(request.getTargetCardNo())){
+            throw new BusinessException(ResultCode.TRANSFER_TO_SELF);
+        }
+
+        //4.对方卡
+        BankCard toCard = bankCardMapper.selectByCardNo(request.getTargetCardNo());
+        if(toCard == null){
+            throw new BusinessException(ResultCode.CARD_NOT_FOUND,"对方卡号不存在");
+        }
+        if(toCard.getCardStatus() == null || toCard.getCardStatus() != 1){
+            throw new BusinessException(ResultCode.CARD_STATUS_ABNORMAL,"对方卡片状态异常，无法接收装账");
+        }
+
+        //5.对方账户
+        Account fromAccount = accountMapper.selectByCardId(fromCard.getId());
+        Account toAccount = accountMapper.selectByCardId(toCard.getId());
+        if(fromAccount == null || toAccount == null){
+            throw new BusinessException(ResultCode.ACCOUNT_NOT_FOUND);
+        }
+        if(fromAccount.getStatus() == null || fromAccount.getStatus() != 1){
+            throw new BusinessException(ResultCode.ACCOUNT_NOT_FOUND,"本方账户状态异常");
+        }
+
+        //6.算手续费
+        BigDecimal amount = request.getAmount();
+        BigDecimal fee = calcFee(amount);
+        BigDecimal total = amount.add(fee);
+
+        //7.先做一次友好判断（给用户明确提示）
+        if(fromAccount.getAvailableBalance().compareTo(total) < 0){
+            throw new BusinessException(ResultCode.BALANCE_NOT_ENOUGH,
+                    "余额不足：转账" + amount +"元 + 手续费"+fee+"元="+total+"元");
+        }
+
+        //8.两边更新：按account_id从小到大执行，避免死锁
+        // （A+B和B+A并发时,若加锁顺序相反会互相等待）
+        int rows;
+        if(fromAccount.getId() < toAccount.getId()){
+            rows = accountMapper.decreaseBalance(fromAccount.getId(),total);
+            if(rows == 0){
+                throw new BusinessException(ResultCode.BALANCE_NOT_ENOUGH);
+            }
+            accountMapper.increaseBalance(toAccount.getId(), amount);
+        }else{
+            accountMapper.increaseBalance(toAccount.getId(),amount);
+            rows = accountMapper.decreaseBalance(fromAccount.getId(),total);
+            if(rows == 0){
+                throw new BusinessException(ResultCode.BALANCE_NOT_ENOUGH);
+            }
+        }
+
+        //9.记3条流水
+        String transNo = generateTransNo();
+        BigDecimal fromAfter = fromAccount.getAvailableBalance().subtract(total);
+
+        //① 转出方 TRANSFER_OUT
+        TransRecord out = new TransRecord();
+        out.setTransNo(transNo);
+        out.setTransTypeCode("TRANSFER_OUT");
+        out.setCardNo(fromCard.getCardNo());
+        out.setAccountId(fromAccount.getId());
+        out.setTargetCardNo(toCard.getCardNo());
+        out.setTargetAccountId(toAccount.getId());
+        out.setAmount(amount);
+        out.setFee(fee);
+        out.setBeforeBalance(fromAccount.getAvailableBalance());
+        out.setAfterBalance(fromAfter);
+        out.setCurrency("CNY");
+        out.setStatus(1);
+        out.setDeviceNo(session.getDeviceNo());
+        out.setSessionId(session.getId());
+        out.setRemark("ATM 转账转出，收款方"+maskCardNo(toCard.getCardNo()));
+        transRecordMapper.insert(out);
+
+        // ② 手续费 FEE（单独一条，便于对账）
+        TransRecord feeRecord = new TransRecord();
+        feeRecord.setTransNo(transNo + "F");
+        feeRecord.setTransTypeCode("FEE");
+        feeRecord.setCardNo(fromCard.getCardNo());
+        feeRecord.setAccountId(fromAccount.getId());
+        feeRecord.setAmount(fee);
+        feeRecord.setFee(BigDecimal.ZERO);
+        feeRecord.setBeforeBalance(fromAccount.getAvailableBalance().subtract(amount));
+        feeRecord.setAfterBalance(fromAfter);
+        feeRecord.setCurrency("CNY");
+        feeRecord.setStatus(1);
+        feeRecord.setDeviceNo(session.getDeviceNo());
+        feeRecord.setSessionId(session.getId());
+        feeRecord.setRemark("转账手续费（0.5%，最低 1 元最高 50 元）");
+        transRecordMapper.insert(feeRecord);
+
+        // ③ 转入方 TRANSFER_IN
+        TransRecord in = new TransRecord();
+        in.setTransNo(transNo + "I");
+        in.setTransTypeCode("TRANSFER_IN");
+        in.setCardNo(toCard.getCardNo());
+        in.setAccountId(toAccount.getId());
+        in.setTargetCardNo(fromCard.getCardNo());
+        in.setTargetAccountId(fromAccount.getId());
+        in.setAmount(amount);
+        in.setFee(BigDecimal.ZERO);
+        in.setBeforeBalance(toAccount.getAvailableBalance());
+        in.setAfterBalance(toAccount.getAvailableBalance().add(amount));
+        in.setCurrency("CNY");
+        in.setStatus(1);
+        in.setDeviceNo(session.getDeviceNo());
+        in.setSessionId(session.getId());
+        in.setRemark("ATM 转账转入，付款方 " + maskCardNo(fromCard.getCardNo()));
+        transRecordMapper.insert(in);
+
+        //10.刷新对话
+        atmSessionMapper.updateLastActive(session.getId());
+
+        Customer toCustomer = customerMapper.selectById(toCard.getCustomerId());
+
+        log.info("转账成功 transNo={},from={},to={},amount={},fee={}",
+                transNo,fromCard.getCardNo(),toCard.getCardNo(),amount,fee);
+
+        //11.组装相应
+        TransferResponse response = new TransferResponse();
+        response.setTransNo(transNo);
+        response.setTargetCardNo(maskCardNo(toCard.getCardNo()));
+        response.setTargetName(toCustomer == null?"":toCustomer.getRealName());
+        response.setAmount(amount);
+        response.setFee(fee);
+        response.setTotalAmount(total);
+        response.setBalanceAfter(fromAfter);
+        response.setMessage("转账成功");
+        return response;
+    }
 
     // ---------------- 私有方法 ----------------
 
@@ -464,5 +611,21 @@ public class AtmServiceImpl implements AtmService {
         if(amount.compareTo(new BigDecimal("10000")) > 0){
             throw new BusinessException(ResultCode.AMOUNT_LIMIT_EXCEED,"单次存款最多 10000 元");
         }
+    }
+
+    //转账手续费：0.5%，最低1元，最高50元
+    private BigDecimal calcFee(BigDecimal amount){
+        //先按0.5%算，保留2位小数
+        BigDecimal fee = amount.multiply(new BigDecimal("0.005"))
+                .setScale(2, RoundingMode.HALF_UP);
+        //最低一元
+        if(fee.compareTo(new BigDecimal("1"))<0){
+            fee = new BigDecimal("1.00");
+        }
+        //最高50元
+        if(fee.compareTo(new BigDecimal("50"))>0){
+            fee = new BigDecimal("50.00");
+        }
+        return fee;
     }
 }

@@ -12,6 +12,8 @@ import com.atm.dto.BalanceResponse;
 import com.atm.dto.TransDetailItem;
 import com.atm.dto.TransDetailRequest;
 import java.util.List;
+import com.atm.dto.TransferRequest;
+import com.atm.dto.TransferResponse;
 /**
  * ATM 端业务接口
  */
@@ -37,4 +39,7 @@ public interface AtmService {
 
     //交易明细
     List<TransDetailItem> queryTransactions(TransDetailRequest request);
+
+    //转账
+    TransferResponse transfer(TransferRequest request);
 }

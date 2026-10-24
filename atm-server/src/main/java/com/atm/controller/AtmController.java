@@ -1,10 +1,7 @@
 package com.atm.controller;
 
 import com.atm.common.Result;
-import com.atm.dto.EjectCardRequest;
-import com.atm.dto.InsertCardRequest;
-import com.atm.dto.InsertCardResponse;
-import com.atm.dto.VerifyPasswordRequest;
+import com.atm.dto.*;
 import com.atm.service.AtmService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,14 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.atm.dto.WithdrawRequest;
-import com.atm.dto.WithdrawResponse;
-import com.atm.dto.DepositRequest;
-import com.atm.dto.DepositResponse;
-import com.atm.dto.BalanceRequest;
-import com.atm.dto.BalanceResponse;
-import com.atm.dto.TransDetailItem;
-import com.atm.dto.TransDetailRequest;
+
 import java.util.List;
 /**
  * ATM 机具端接口
@@ -103,5 +93,15 @@ public class AtmController {
     @PostMapping("/transactions")
     public Result<List<TransDetailItem>> transactions(@Valid @RequestBody TransDetailRequest request){
         return Result.success("查询成功",atmService.queryTransactions(request));
+    }
+
+    /**
+     * ⑧ 转账
+     * POST http://localhost:8080/api/atm/transfer
+     * { "sessionToken": "xxx", "targetCardNo": "6222020000000002", "amount": 1000 }
+     */
+    @PostMapping("/transfer")
+    public Result<TransferResponse> transfer(@Valid @RequestBody TransferRequest request){
+        return  Result.success("转账成功",atmService.transfer(request));
     }
 }
