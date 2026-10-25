@@ -19,7 +19,7 @@ class AtmApp extends StatelessWidget {
 }
 
 /// 界面步骤 —— 单页状态机，用 step 切换显示的界面
-enum Step { insertCard, password, menu, withdraw,deposit,transfer, balance, result }
+enum Step { insertCard, password, menu, withdraw,deposit,transfer, detail,balance, result }
 
 class AtmHome extends StatefulWidget {
   const AtmHome({super.key});
@@ -39,6 +39,7 @@ class _AtmHomeState extends State<AtmHome> {
 
   String resultText = '';
   String balanceText = '';
+  List<dynamic> detailList = [];
 
   //-------------------输入框--------------------
   final cardCtrl = TextEditingController();
@@ -251,6 +252,20 @@ class _AtmHomeState extends State<AtmHome> {
     });
   }
 
+  ///交易明细
+  Future<void> queryTransactions() async{
+    final r = await _call('/api/atm/transactions', {'sessionToken': sessionToken,'limit':10});
+    if(r == null) return;
+    if(!r.ok){
+      _fail(r);
+      return;
+    }
+    setState(() {
+      detailList = (r.data as List).cast<dynamic>();
+      step = Step.detail;
+    });
+  }
+
   /// ⑤ 退卡
   Future<void> ejectCard() async {
     await _call('/api/atm/eject-card', {'sessionToken': sessionToken});
@@ -274,7 +289,7 @@ class _AtmHomeState extends State<AtmHome> {
       appBar: AppBar(title: Text(_title()), centerTitle: true),
       body: Padding(
         padding: const EdgeInsets.all(24),
-        child: Center(child: _body()),
+        child: step == Step.detail ? _body() : Center(child: _body()),
       ),
     );
   }
@@ -288,6 +303,7 @@ class _AtmHomeState extends State<AtmHome> {
         Step.transfer => '转账',
         Step.balance => '余额查询',
         Step.result => '操作结果',
+        Step.detail => '交易明细',
       };
 
   Widget _body() {
@@ -310,6 +326,7 @@ class _AtmHomeState extends State<AtmHome> {
       Step.transfer => _transferView(),
       Step.balance => _balanceView(),
       Step.result => _resultView(),
+      Step.detail => _detailView(),
     };
   }
 
@@ -321,6 +338,12 @@ class _AtmHomeState extends State<AtmHome> {
         child: Text(text, style: const TextStyle(fontSize: 18)),
       ),
     );
+  }
+
+  ///后端返回“2026-10-25T11:11:00”,显示成“2026-10-25 11:11:00”
+  String _fmtTime(dynamic v){
+    final s = (v ?? '').toString().replaceFirst('T', '');
+    return s.length >= 19 ? s.substring(0,19) : s;
   }
 
   Widget _insertCardView() {
@@ -412,14 +435,12 @@ class _AtmHomeState extends State<AtmHome> {
           setState(() => step = Step.transfer);
         }),
         const SizedBox(height: 12),
+        _bigButton('交易明细', queryTransactions),
+        const SizedBox(height: 12),
         _bigButton('余额查询', queryBalance),
         const SizedBox(height: 12),
         _bigButton('退 卡', ejectCard),
-        const SizedBox(height: 28),
-        const Text('交易明细 -> 下一步开发',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
+        ]
     );
   }
 
@@ -525,6 +546,50 @@ class _AtmHomeState extends State<AtmHome> {
         TextButton(
             onPressed: () => setState(() => step = Step.menu),
             child: const Text('返回')),
+      ],
+    );
+  }
+
+  Widget _detailView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('$customerName    $cardNoMasked',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: Colors.grey)),
+        const SizedBox(height: 12),
+        Expanded(
+          child: detailList.isEmpty
+              ? const Center(child: Text('暂无交易记录'))
+              : ListView.separated(
+            itemCount: detailList.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final t = detailList[i];
+              final isOut = ['WITHDRAW', 'TRANSFER_OUT', 'FEE']
+                  .contains(t['transTypeCode']);
+              return ListTile(
+                leading: Icon(
+                  isOut ? Icons.arrow_upward : Icons.arrow_downward,
+                  color: isOut ? Colors.red : Colors.green,
+                ),
+                title: Text((t['transTypeName'] ?? '').toString()),
+                subtitle: Text(_fmtTime(t['transTime']),
+                    style: const TextStyle(fontSize: 12)),
+                trailing: Text(
+                  '${isOut ? '-' : '+'}${toDouble(t['amount']).toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isOut ? Colors.red : Colors.green,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        _bigButton('返回菜单', () => setState(() => step = Step.menu)),
       ],
     );
   }
