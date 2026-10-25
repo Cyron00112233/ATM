@@ -19,7 +19,7 @@ class AtmApp extends StatelessWidget {
 }
 
 /// 界面步骤 —— 单页状态机，用 step 切换显示的界面
-enum Step { insertCard, password, menu, withdraw, balance, result }
+enum Step { insertCard, password, menu, withdraw,deposit,transfer, balance, result }
 
 class AtmHome extends StatefulWidget {
   const AtmHome({super.key});
@@ -44,12 +44,14 @@ class _AtmHomeState extends State<AtmHome> {
   final cardCtrl = TextEditingController();
   final pwdCtrl = TextEditingController();
   final amountCtrl = TextEditingController();
+  final targetCtrl = TextEditingController();
 
   @override
   void dispose() {
     cardCtrl.dispose();
     pwdCtrl.dispose();
     amountCtrl.dispose();
+    targetCtrl.dispose();
     super.dispose();
   }
 
@@ -166,6 +168,70 @@ class _AtmHomeState extends State<AtmHome> {
     );
   }
 
+  ///存款
+  Future<void> deposit() async{
+    final amount = int.tryParse(amountCtrl.text.trim());
+    if(amount == null || amount <= 0){
+      _goResult('请输入正确的金额');
+      return;
+    }
+    final r = await _call('/api/atm/deposit',{
+      'sessionToken': sessionToken,
+      'amount':amount,
+    });
+    if(r == null) return;
+    if(!r.ok){
+      _fail(r);
+      return;
+    }
+    final d = r.data;
+    _goResult(
+      '存款成功\n\n'
+       '金额：${toDouble(d['amount']).toStringAsFixed(2)} 元\n'
+       '进钞：${d['cashDetail']}\n'
+       '余额：${toDouble(d['balanceAfter']).toStringAsFixed(2)} 元\n\n'
+       '流水号\n${d['transNo']}',
+    );
+  }
+
+  ///转账
+  Future<void> transfer() async{
+    if(targetCtrl.text.trim().isEmpty){
+      _goResult('请输入对方卡号');
+      return;
+    }
+    if (targetCtrl.text.trim() == cardCtrl.text.trim()){
+      _goResult('不能给自己转账');
+      return;
+    }
+    final amount = int.tryParse(amountCtrl.text.trim());
+    if(amount == null || amount <= 0){
+      _goResult('请输入正确的金额');
+      return;
+    }
+    final r = await _call('/api/atm/transfer', {
+      'sessionToken': sessionToken,
+      'targetCardNo': targetCtrl.text.trim(),
+      'amount': amount,
+    });
+    if(r == null) return;
+    if(!r.ok){
+      _fail(r);
+      return;
+    }
+    final d = r.data;
+    _goResult(
+      '转账成功\n\n'
+      '收款人：${d['targetName']}\n'
+      '收款卡号：${d['targetCardNo']}\n'
+      '转账金额：${toDouble(d['amount']).toStringAsFixed(2)}元\n'
+      '手续费：${toDouble(d['fee']).toStringAsFixed(2)} 元\n'
+      '扣款合计：${toDouble(d['totalAmount']).toStringAsFixed(2)} 元\n'
+      '余额：${toDouble(d['balanceAfter']).toStringAsFixed(2)} 元\n\n'
+      '流水号\n${d['transNo']}',
+    );
+  }
+
   /// ④ 余额查询
   Future<void> queryBalance() async {
     final r = await _call('/api/atm/balance', {'sessionToken': sessionToken});
@@ -218,6 +284,8 @@ class _AtmHomeState extends State<AtmHome> {
         Step.password => '请输入交易密码',
         Step.menu => '请选择业务',
         Step.withdraw => '取款',
+        Step.deposit => '存款',
+        Step.transfer => '转账',
         Step.balance => '余额查询',
         Step.result => '操作结果',
       };
@@ -238,6 +306,8 @@ class _AtmHomeState extends State<AtmHome> {
       Step.password => _passwordView(),
       Step.menu => _menuView(),
       Step.withdraw => _withdrawView(),
+      Step.deposit => _depositView(),
+      Step.transfer => _transferView(),
       Step.balance => _balanceView(),
       Step.result => _resultView(),
     };
@@ -331,11 +401,22 @@ class _AtmHomeState extends State<AtmHome> {
           setState(() => step = Step.withdraw);
         }),
         const SizedBox(height: 12),
+        _bigButton('存款', (){
+          amountCtrl.clear();
+          setState(() =>step = Step.deposit);
+        }),
+        const SizedBox(height: 12),
+        _bigButton('转账', (){
+          amountCtrl.clear();
+          targetCtrl.clear();
+          setState(() => step = Step.transfer);
+        }),
+        const SizedBox(height: 12),
         _bigButton('余额查询', queryBalance),
         const SizedBox(height: 12),
         _bigButton('退 卡', ejectCard),
         const SizedBox(height: 28),
-        const Text('存款 / 转账 / 交易明细 -> 下一步开发',
+        const Text('交易明细 -> 下一步开发',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: Colors.grey)),
       ],
@@ -368,6 +449,79 @@ class _AtmHomeState extends State<AtmHome> {
         ),
         const SizedBox(height: 24),
         _bigButton('确 认', withdraw),
+        TextButton(
+            onPressed: () => setState(() => step = Step.menu),
+            child: const Text('返回')),
+      ],
+    );
+  }
+
+  Widget _depositView(){
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Icon(Icons.savings_outlined,size: 72,color: Colors.teal,),
+        const SizedBox(height: 20),
+        const Text('请存入现金',
+          textAlign: TextAlign.center,style: TextStyle(fontSize: 20)),
+        const SizedBox(height: 20),
+        TextField(
+          controller: amountCtrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: '金额（元）',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.currency_yuan),
+          ),
+          onSubmitted: (_) => deposit(),
+        ),
+        const SizedBox(height: 24),
+        _bigButton('确认', deposit),
+        TextButton(
+        onPressed: () => setState(() => step = Step.menu),
+        child: const Text('返回')),
+      ],
+    );
+  }
+
+  Widget _transferView(){
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Icon(Icons.swap_horiz,size: 72,color: Colors.purple),
+        const SizedBox(height: 20),
+        const Text('转账',
+          textAlign: TextAlign.center,style: TextStyle(fontSize: 20)),
+        const SizedBox(height: 6),
+        const Text('单笔 1 - 50000 元 ，手续费 0.5%(最低1元，最高50元)',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12,color: Colors.grey)),
+        const SizedBox(height: 20),
+        TextField(
+          controller: targetCtrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: '对方卡号',
+              hintText: '6222020000000002',
+              border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.credit_card),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: amountCtrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: '转账金额（元）',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.currency_yuan),
+          ),
+          onSubmitted: (_) => transfer(),
+        ),
+        const SizedBox(height: 24),
+        _bigButton('确认', transfer),
         TextButton(
             onPressed: () => setState(() => step = Step.menu),
             child: const Text('返回')),
