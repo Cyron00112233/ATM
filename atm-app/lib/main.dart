@@ -39,6 +39,7 @@ class _AtmHomeState extends State<AtmHome> {
 
   String resultText = '';
   String balanceText = '';
+  String menuBalance = '--';
   List<dynamic> detailList = [];
 
   //-------------------输入框--------------------
@@ -141,6 +142,7 @@ class _AtmHomeState extends State<AtmHome> {
     }
 
     setState(() => step = Step.menu);
+    _refreshMenuBalance();
   }
 
   /// ③ 取款
@@ -252,6 +254,17 @@ class _AtmHomeState extends State<AtmHome> {
     });
   }
 
+  ///进菜单时后台刷新余额(不显示 loading,不跳页)
+  Future<void> _refreshMenuBalance() async{
+    final r = await apiPost('/api/atm/balance', {'sessionToken':sessionToken});
+    if(!mounted) return;
+    if(r.code == 200){
+      setState(() {
+        menuBalance = toDouble(r.data['availableBalance']).toStringAsFixed(2);
+      });
+    }
+  }
+
   ///交易明细
   Future<void> queryTransactions() async{
     final r = await _call('/api/atm/transactions', {'sessionToken': sessionToken,'limit':10});
@@ -273,6 +286,7 @@ class _AtmHomeState extends State<AtmHome> {
       sessionToken = '';
       cardNoMasked = '';
       customerName = '';
+      menuBalance = '--';
       cardCtrl.clear();
       pwdCtrl.clear();
       amountCtrl.clear();
@@ -337,6 +351,27 @@ class _AtmHomeState extends State<AtmHome> {
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Text(text, style: const TextStyle(fontSize: 18)),
       ),
+    );
+  }
+
+  /// 金额快捷按钮组：点一下自动填入金额框
+  Widget _quickAmounts(List<int> values) {
+    return Row(
+      children: [
+        for (final v in values)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: OutlinedButton(
+                onPressed: () => amountCtrl.text = '$v',
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: Text('$v'),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -418,6 +453,11 @@ class _AtmHomeState extends State<AtmHome> {
         Text(cardNoMasked,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13, color: Colors.grey)),
+        const SizedBox(height: 16),
+        Text('可用余额 $menuBalance 元',
+              textAlign: TextAlign.center,
+               style: const TextStyle(
+                 fontSize: 22,fontWeight: FontWeight.bold,color: Colors.blue)),
         const SizedBox(height: 28),
         _bigButton('取 款', () {
           amountCtrl.clear();
@@ -468,6 +508,8 @@ class _AtmHomeState extends State<AtmHome> {
           ),
           onSubmitted: (_) => withdraw(),
         ),
+        const SizedBox(height: 12),
+        _quickAmounts(const[100,500,1000,2000]),
         const SizedBox(height: 24),
         _bigButton('确 认', withdraw),
         TextButton(
@@ -497,6 +539,8 @@ class _AtmHomeState extends State<AtmHome> {
           ),
           onSubmitted: (_) => deposit(),
         ),
+        const SizedBox(height: 12),
+        _quickAmounts(const[100,500,1000,2000]),
         const SizedBox(height: 24),
         _bigButton('确认', deposit),
         TextButton(
@@ -541,6 +585,8 @@ class _AtmHomeState extends State<AtmHome> {
           ),
           onSubmitted: (_) => transfer(),
         ),
+        const SizedBox(height: 12),
+        _quickAmounts(const[100,500,1000,2000]),
         const SizedBox(height: 24),
         _bigButton('确认', transfer),
         TextButton(
