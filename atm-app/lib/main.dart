@@ -278,6 +278,21 @@ class _AtmHomeState extends State<AtmHome> {
       step = Step.detail;
     });
   }
+  ///带确认的退卡
+  Future<void> ejectCardWithConfirm() async{
+    final ok = await showDialog<bool>(context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('确认退卡'),
+          content: const Text('退卡后本次会话结束,确定要退卡吗？'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context,false),
+                child: const Text('取消')
+            ),
+            FilledButton(onPressed: () => Navigator.pop(context, true),
+                child: const Text('确定退卡')),
+          ],
+        ));
+  }
 
   /// ⑤ 退卡
   Future<void> ejectCard() async {
@@ -438,7 +453,7 @@ class _AtmHomeState extends State<AtmHome> {
           onSubmitted: (_) => verifyPassword(),
         ),
         _bigButton('确 认', verifyPassword),
-        TextButton(onPressed: ejectCard, child: const Text('退 卡')),
+        TextButton(onPressed: ejectCardWithConfirm, child: const Text('退 卡')),
       ],
     );
   }
@@ -479,7 +494,7 @@ class _AtmHomeState extends State<AtmHome> {
         const SizedBox(height: 12),
         _bigButton('余额查询', queryBalance),
         const SizedBox(height: 12),
-        _bigButton('退 卡', ejectCard),
+        _bigButton('退 卡', ejectCardWithConfirm),
         ]
     );
   }

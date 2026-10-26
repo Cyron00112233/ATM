@@ -1,30 +1,21 @@
-// This is a basic Flutter widget test.
+// ATM 自助服务 —— 冒烟测试
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// 只验证「App 能启动、插卡页能正确渲染」，
+// 第一帧不发网络请求，所以跑测试不需要先启动后端。
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:atm_app/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('App 能启动并显示插卡页', (WidgetTester tester) async {
+    // 构建整个 App
+    await tester.pumpWidget(const AtmApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // 第一帧不应该抛异常
+    expect(tester.takeException(), isNull);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // 插卡页的关键文字应该出现
+    expect(find.textContaining('请插入银行卡'), findsWidgets);
   });
 }
