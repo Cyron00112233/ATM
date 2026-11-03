@@ -265,6 +265,13 @@ class _AtmHomeState extends State<AtmHome> {
     }
   }
 
+  ///回到菜单页,并刷新一次余额
+  ///取款/存款/转账之后余额会变,不刷新的话菜单上还是旧数字
+  void _goMenu() {
+    setState(() => step = Step.menu);
+    _refreshMenuBalance();
+  }
+
   ///交易明细
   Future<void> queryTransactions() async{
     final r = await _call('/api/atm/transactions', {'sessionToken': sessionToken,'limit':10});
@@ -528,7 +535,7 @@ class _AtmHomeState extends State<AtmHome> {
         const SizedBox(height: 24),
         _bigButton('确 认', withdraw),
         TextButton(
-            onPressed: () => setState(() => step = Step.menu),
+            onPressed: _goMenu,
             child: const Text('返回')),
       ],
     );
@@ -559,7 +566,7 @@ class _AtmHomeState extends State<AtmHome> {
         const SizedBox(height: 24),
         _bigButton('确认', deposit),
         TextButton(
-        onPressed: () => setState(() => step = Step.menu),
+        onPressed: _goMenu,
         child: const Text('返回')),
       ],
     );
@@ -605,7 +612,7 @@ class _AtmHomeState extends State<AtmHome> {
         const SizedBox(height: 24),
         _bigButton('确认', transfer),
         TextButton(
-            onPressed: () => setState(() => step = Step.menu),
+            onPressed: _goMenu,
             child: const Text('返回')),
       ],
     );
@@ -650,7 +657,7 @@ class _AtmHomeState extends State<AtmHome> {
           ),
         ),
         const SizedBox(height: 12),
-        _bigButton('返回菜单', () => setState(() => step = Step.menu)),
+        _bigButton('返回菜单', _goMenu),
       ],
     );
   }
@@ -666,7 +673,7 @@ class _AtmHomeState extends State<AtmHome> {
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 15, height: 1.6)),
         const SizedBox(height: 28),
-        _bigButton('返回菜单', () => setState(() => step = Step.menu)),
+        _bigButton('返回菜单', _goMenu),
       ],
     );
   }
@@ -682,7 +689,7 @@ class _AtmHomeState extends State<AtmHome> {
             style: const TextStyle(fontSize: 16, height: 1.7)),
         const SizedBox(height: 28),
         if (loggedIn)
-          _bigButton('返回菜单', () => setState(() => step = Step.menu))
+          _bigButton('返回菜单', _goMenu)
         else
           _bigButton('重新插卡', () {
             setState(() {
