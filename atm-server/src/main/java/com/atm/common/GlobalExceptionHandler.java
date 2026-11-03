@@ -9,6 +9,8 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理器
@@ -85,7 +87,31 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 7. 兜底：其它所有未预料到的异常
+     * 7. 请求路径不存在（404）
+     * <p>
+     * 例如把 /api/atm/withdraw 误打成 /api/atm/withdrawX。
+     * <p>
+     * Spring Boot 3.2+ 的行为：没有匹配到任何 Controller 的请求会继续交给静态资源处理器，
+     * 最终抛出 {@link NoResourceFoundException}。如果这里不处理，它会被下面的兜底方法接住，
+     * 返回 500「系统异常」——语义就错了（明明是客户端路径写错，却报服务端错误）。
+     * <p>
+     * {@link NoHandlerFoundException} 是旧路径（需开启 throw-exception-if-no-handler-found），
+     * 两个都兜住，避免因版本/配置差异又退回 500。
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Result<Void> handleNoResource(NoResourceFoundException e) {
+        log.warn("接口不存在 -> {}", e.getResourcePath());
+        return Result.fail(ResultCode.NOT_FOUND.getCode(), "接口不存在：" + e.getResourcePath());
+    }
+
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public Result<Void> handleNoHandler(NoHandlerFoundException e) {
+        log.warn("接口不存在 -> {} {}", e.getHttpMethod(), e.getRequestURL());
+        return Result.fail(ResultCode.NOT_FOUND.getCode(), "接口不存在：" + e.getRequestURL());
+    }
+
+    /**
+     * 8. 兜底：其它所有未预料到的异常
      * <p>
      * 这类异常说明代码有 bug，要把完整堆栈打到日志里（error 级别）。
      * <p>

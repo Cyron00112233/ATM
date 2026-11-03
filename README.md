@@ -86,11 +86,48 @@ atm/
 │   ├── sql/01_schema.sql           建表脚本（13 张表）
 │   ├── sql/02_init_data.sql        初始化数据（9 条 insert，覆盖 9 张表）
 │   ├── 接口文档.md                  14 个接口的完整规格
-│   └── 后端设计说明.md               架构、链路、关键设计决策
+│   ├── 后端设计说明.md               架构、链路、关键设计决策
+│   ├── 系统设计文档.md               按模块讲「设计思路 → 实现」
+│   ├── 项目目录与包结构说明.md        每个包干什么、新增功能要动哪些文件
+│   ├── Dart基础.md                  Dart 8 个概念（配项目真实代码）
+│   ├── Flutter组件说明.md           项目用到的全部 Widget
+│   └── 提问记录/                    学习过程记录（八轮问答 + 总览）
 └── README.md
 ```
 
-**规模**：后端 50 个 Java 文件 / 约 2400 行 + 7 个 Mapper XML；前端 2 个 Dart 文件 / 约 740 行。
+**规模**：后端 51 个 Java 文件 / 约 2440 行 + 7 个 Mapper XML（25 条 SQL）；前端 3 个 Dart 文件 / 约 760 行；文档 7000+ 行。
+
+---
+
+## 数据库设计
+
+`docs/sql/01_schema.sql` 共 **13 张表**。
+
+### 本期实际使用（7 张，有实体类 + Mapper SQL）
+
+| 表 | 用途 |
+|---|---|
+| `sys_user` | 管理员账号（BCrypt 密码哈希） |
+| `customer` | 客户信息 |
+| `bank_card` | 银行卡（卡状态、交易密码哈希、错误次数） |
+| `account` | 账户（账面余额、可用余额） |
+| `trans_record` | 交易流水（唯一索引 `uk_trans_no` 保证幂等） |
+| `atm_cash_box` | 钞箱（面额、张数） |
+| `atm_session` | ATM 会话（token、状态、verified 标志） |
+
+### 预留未用（6 张，表结构已设计，对应功能不在本期范围）
+
+| 表 | 预留用途 | 本期未实现的原因 |
+|---|---|---|
+| `sys_role` | 角色定义 | 权限体系未做，当前用 `sys_user.role` 单一字段区分 |
+| `sys_user_role` | 用户-角色关联 | 同上（多角色才需要关联表） |
+| `trans_type` | 交易类型字典 | 交易类型固定 6 种，改用代码常量 `Map` 翻译，省一次关联查询 |
+| `atm_device` | 机具档案 | 只硬编码了 `ATM001`，未做多机具管理 |
+| `operation_log` | 操作审计日志 | 管理端操作日志未实现 |
+| `daily_settlement` | 日终轧账 | 日终对账功能未实现 |
+
+> **为什么保留这些空表**：体现"数据库设计先行"的完整设计，后续扩展时无需改表结构。
+> 这是**范围裁剪**，不是遗漏 —— 答辩时如被问「这些表为什么没用」，可直接引用本表说明。
 
 ---
 
@@ -118,14 +155,37 @@ source docs/sql/01_schema.sql;    -- 建表（13 张，可重复执行）
 source docs/sql/02_init_data.sql; -- 演示数据（9 条 insert）
 ```
 
-### 2. 配置数据库连接
+### 2. 配置数据库连接与密钥
 
-修改 `atm-server/src/main/resources/application.properties`：
+**数据库连接**（`atm-server/src/main/resources/application.properties`）：
 
 ```properties
 spring.datasource.username=root
-spring.datasource.password=你的密码
+# 密码支持环境变量覆盖；不设 DB_PASSWORD 时使用默认值 123456（MySQL 仅监听 localhost）
+spring.datasource.password=${DB_PASSWORD:123456}
 ```
+
+**JWT 签名密钥**：
+
+```properties
+# 支持环境变量 JWT_SECRET 覆盖，长度必须 >= 32 字符
+# 仓库里只放了一个明显的占位值，不含真实密钥
+atm.jwt.secret=${JWT_SECRET:CHANGE_ME_use_env_var_JWT_SECRET_32chars_minimum_0000}
+```
+
+**在 IDEA 里设置环境变量**（部署到服务器时则设为系统环境变量）：
+
+```
+Run → Edit Configurations... → 选中 AtmServerApplication
+→ 找到 Environment variables → 填入：
+       DB_PASSWORD=你的数据库密码
+       JWT_SECRET=你的随机长密钥（>= 32 字符）
+```
+
+> ⚠️ **安全说明**
+> - 仓库中**不含**真实密钥；`application.properties` 里的默认值只是占位/本地演示用。
+> - Git 历史里曾提交过旧 secret，应视为**已泄露**并作废；请用新生成的随机串。
+> - 生产环境务必通过环境变量注入，不要写回配置文件。
 
 ### 3. 启动后端
 
@@ -226,8 +286,11 @@ flutter run -d windows
 |---|---|
 | 日累计限额 | 仅实现单笔限额，未实现「单日累计 20000 元 / 10 次」 |
 | 失败交易流水 | 交易失败时异常回滚，流水表不记录（仅写应用日志） |
-| 接口 404 | 路径不存在时被兜底异常处理器包装为 `code=500`，语义应为 404 |
 | 管理端界面 | 仅提供接口，无 UI |
+| 单元测试 | 仅有 Spring Boot 启动测试与前端冒烟测试，未覆盖业务逻辑 |
+| 流水的并发精度 | 流水的 `before/after` 余额取自扣款前的快照，极高并发下可能与实际值有偏差 |
+| 主动幂等 | 仅靠 `uk_trans_no` 唯一索引被动兜底，未做提交前查重 |
+| 预留表 | 6 张表已设计未使用，见上文「数据库设计」 |
 | 统计报表 / 日终轧账 / 电子凭条 | 表结构已设计，功能未实现 |
 
 ---
@@ -242,6 +305,8 @@ flutter run -d windows
 - [x] 会话 verified 双阶段安全校验
 - [x] Flutter 前端六项功能
 - [x] 接口文档与后端设计说明
+- [x] 接口 404 语义修正（路径不存在返回 404，不再落到 500）
+- [x] 密钥改为环境变量注入（仓库不含真实密钥）
 - [ ] 日累计限额
 - [ ] 单元测试
 - [ ] Flutter Web 版
