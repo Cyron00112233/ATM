@@ -17,7 +17,7 @@ const c = 5;     // 编译期常量，最严格（编译时就必须是固定值
 
 ```dart
 // main.dart
-const String baseUrl = 'http://localhost:8080';   // 编译期常量
+const String baseUrl = 'http://localhost:8081';   // 编译期常量
 final cardCtrl = TextEditingController();          // 只创建一次，之后不能换
 Step step = Step.insertCard;                        // 普通变量，会不断变
 ```
