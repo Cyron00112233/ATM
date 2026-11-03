@@ -23,7 +23,7 @@ public class AdminController {
 
     /**
      * 管理员登录
-     * POST http://localhost:8080/api/admin/login
+     * POST http://localhost:8081/api/admin/login
      * { "username": "admin", "password": "admin123" }
      */
     @PostMapping("/login")

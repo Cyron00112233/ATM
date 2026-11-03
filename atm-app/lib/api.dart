@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 ///后端服务地址（以后部署到别的机器，只改这一行）
-const String baseUrl = 'http://localhost:8080';
+const String baseUrl = 'http://localhost:8081';
 
 ///后端统一响应外壳：{code,message,data,timestamp}
 class ApiResult {

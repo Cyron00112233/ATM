@@ -22,7 +22,7 @@ public class CustomerController {
 
     /**
      * 查询全部客户
-     * GET http://localhost:8080/api/customer/list
+     * GET http://localhost:8081/api/customer/list
      */
     @GetMapping("/list")
     public Result<List<Customer>> list(){
@@ -31,7 +31,7 @@ public class CustomerController {
 
     /**
      * 按 id 查询单个客户
-     * GET http://localhost:8080/api/customer/get/1
+     * GET http://localhost:8081/api/customer/get/1
      */
     @GetMapping("/get/{id}")
     public Result<Customer> getById(@PathVariable("id") Long id){
@@ -40,7 +40,7 @@ public class CustomerController {
 
     /**
      * 按姓名模糊查询
-     * GET http://localhost:8080/api/customer/search?name=张
+     * GET http://localhost:8081/api/customer/search?name=张
      */
     @GetMapping("/search")
     public Result<List<Customer>> search(@RequestParam("name") String name){
@@ -49,7 +49,7 @@ public class CustomerController {
 
     /**
      * 统计客户总数
-     * GET http://localhost:8080/api/customer/count
+     * GET http://localhost:8081/api/customer/count
      */
     @GetMapping("/count")
     public Result<Long> count(){

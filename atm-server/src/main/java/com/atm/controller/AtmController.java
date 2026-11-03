@@ -25,7 +25,7 @@ public class AtmController {
 
     /**
      * ① 插卡
-     * POST http://localhost:8080/api/atm/insert-card
+     * POST http://localhost:8081/api/atm/insert-card
      * { "cardNo": "6222020000000001", "deviceNo": "ATM001" }
      */
     @PostMapping("/insert-card")
@@ -35,7 +35,7 @@ public class AtmController {
 
     /**
      * ② 验证交易密码
-     * POST http://localhost:8080/api/atm/verify-password
+     * POST http://localhost:8081/api/atm/verify-password
      * { "sessionToken": "xxx", "password": "123456" }
      */
     @PostMapping("/verify-password")
@@ -46,7 +46,7 @@ public class AtmController {
 
     /**
      * ③ 退卡
-     * POST http://localhost:8080/api/atm/eject-card
+     * POST http://localhost:8081/api/atm/eject-card
      * { "sessionToken": "xxx" }
      */
     @PostMapping("/eject-card")
@@ -57,7 +57,7 @@ public class AtmController {
 
     /**
      * ④ 取款
-     * POST http://localhost:8080/api/atm/withdraw
+     * POST http://localhost:8081/api/atm/withdraw
      * { "sessionToken": "xxx", "amount": 500 }
      */
     @PostMapping("/withdraw")
@@ -67,7 +67,7 @@ public class AtmController {
 
     /**
      * ⑤ 存款
-     * POST http://localhost:8080/api/atm/deposit
+     * POST http://localhost:8081/api/atm/deposit
      * { "sessionToken": "xxx", "amount": 1000 }
      */
     @PostMapping("/deposit")
@@ -77,7 +77,7 @@ public class AtmController {
 
     /**
      * ⑥ 余额查询
-     * POST http://localhost:8080/api/atm/balance
+     * POST http://localhost:8081/api/atm/balance
      * { "sessionToken": "xxx" }
      */
     @PostMapping("/balance")
@@ -87,7 +87,7 @@ public class AtmController {
 
     /**
      * ⑦ 交易明细
-     * POST http://localhost:8080/api/atm/transactions
+     * POST http://localhost:8081/api/atm/transactions
      * { "sessionToken": "xxx", "limit": 10 }
      */
     @PostMapping("/transactions")
@@ -97,7 +97,7 @@ public class AtmController {
 
     /**
      * ⑧ 转账
-     * POST http://localhost:8080/api/atm/transfer
+     * POST http://localhost:8081/api/atm/transfer
      * { "sessionToken": "xxx", "targetCardNo": "6222020000000002", "amount": 1000 }
      */
     @PostMapping("/transfer")

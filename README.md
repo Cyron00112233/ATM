@@ -199,10 +199,10 @@ mvn spring-boot:run
 验证：
 
 ```bash
-curl http://localhost:8080/api/hello
+curl http://localhost:8081/api/hello
 ```
 
-返回 `{"code":200,...}` 即启动成功。**服务默认监听 8080 端口。**
+返回 `{"code":200,...}` 即启动成功。**服务默认监听 8081 端口。**
 
 ### 4. 启动前端
 
