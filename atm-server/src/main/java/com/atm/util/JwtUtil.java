@@ -3,7 +3,6 @@ package com.atm.util;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +13,6 @@ import java.util.Date;
 /**
  * JWT 工具类：负责签发和解析 Token
  */
-@Slf4j
 @Component
 public class JwtUtil {
 

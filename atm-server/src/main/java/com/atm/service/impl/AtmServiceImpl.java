@@ -241,7 +241,7 @@ public class AtmServiceImpl implements AtmService {
         //8.刷新会话活动时间
         atmSessionMapper.updateLastActive(session.getId());
 
-        log.info("取款成功 tranNO={},cardNo={},amount={}",transNo,card.getCardNo(),amount);
+        log.info("取款成功 transNo={},cardNo={},amount={}",transNo,card.getCardNo(),amount);
 
         //9.组装响应
         WithdrawResponse response = new WithdrawResponse();
@@ -312,7 +312,7 @@ public class AtmServiceImpl implements AtmService {
         //8.刷新会话活动时间
         atmSessionMapper.updateLastActive(session.getId());
 
-        log.info("存款成功 transNo={},cardNo{},amount={}",transNo,card.getCardNo(),amount);
+        log.info("存款成功 transNo={},cardNo={},amount={}",transNo,card.getCardNo(),amount);
 
         //9.组装响应
         DepositResponse response = new DepositResponse();
